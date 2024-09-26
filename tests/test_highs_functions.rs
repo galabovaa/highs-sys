@@ -132,3 +132,27 @@ fn highs_functions_multithread() {
         t.join().expect("Thread should not panic");
     }
 }
+
+#[test]
+fn highs_model_name() {
+    unsafe {
+        let highs = Highs_create();
+
+        let model_name = CString::new("").unwrap();
+        let empty_string = CString::new("").unwrap();
+
+        // Get model name as initialized.
+        Highs_getModelName(highs, model_name.as_ptr());
+        assert_eq!(model_name, empty_string, "modelNameInit");
+
+        // Set new model name.
+        let new_model_name = CString::new("new_model_name").unwrap();
+        Highs_setModelName(highs, new_model_name.as_ptr());
+
+        // Get model name after set.
+        Highs_getModelName(highs, model_name.as_ptr());
+        assert_eq!(model_name, new_model_name, "modelNameAfterSetInit");
+
+        Highs_destroy(highs);
+    }
+}
