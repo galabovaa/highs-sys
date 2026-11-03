@@ -5,14 +5,34 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  # Nightly run against the HiGHS development branch, so breakage is noticed
+  # before the next HiGHS release.
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      highs_ref:
+        description: "HiGHS branch, tag or commit to test against (empty = vendored submodule)"
+        default: ""
+  # Called from the HiGHS repository's CI to test every upstream commit/PR:
+  #   uses: rust-or/highs-sys/.github/workflows/rust.yml@master
+  workflow_call:
+    inputs:
+      highs_ref:
+        type: string
+        default: ""
 
 env:
   CARGO_TERM_COLOR: always
+  # Empty means "use the vendored submodule as committed".
+  HIGHS_REF: ${{ inputs.highs_ref || (github.event_name == 'schedule' && 'latest') || '' }}
 
 jobs:
   build:
     runs-on: ${{ matrix.config.os }}
+    timeout-minutes: 60
     strategy:
+      fail-fast: false
       matrix:
         config:
           - os: ubuntu-latest
@@ -30,7 +50,13 @@ jobs:
       if: matrix.config.os == 'windows-latest'
     - uses: actions/checkout@v4
       with:
+        # When called from another repository (HiGHS), check out highs-sys
+        # itself rather than the caller.
+        repository: ${{ inputs.highs_ref && 'rust-or/highs-sys' || github.repository }}
         submodules: recursive
+    - name: Use HiGHS ${{ env.HIGHS_REF }}
+      if: env.HIGHS_REF != ''
+      run: git -C HiGHS fetch --depth=1 origin "$HIGHS_REF" && git -C HiGHS checkout FETCH_HEAD
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@v2
     - name: install dependencies
@@ -57,13 +83,18 @@ jobs:
 
   wasm-emscripten:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     env:
       EMSDK_VERSION: 5.0.0
       EMSDK_CACHE_FOLDER: emsdk-cache
     steps:
     - uses: actions/checkout@v4
       with:
+        repository: ${{ inputs.highs_ref && 'rust-or/highs-sys' || github.repository }}
         submodules: recursive
+    - name: Use HiGHS ${{ env.HIGHS_REF }}
+      if: env.HIGHS_REF != ''
+      run: git -C HiGHS fetch --depth=1 origin "$HIGHS_REF" && git -C HiGHS checkout FETCH_HEAD
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@v2
     - name: Setup emsdk
@@ -75,3 +106,13 @@ jobs:
       run: |
         rustup target add wasm32-unknown-emscripten
         cargo build --target wasm32-unknown-emscripten
+
+  version-check:
+    if: inputs.highs_ref == '' && github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - run: ./scripts/check-highs-version.sh

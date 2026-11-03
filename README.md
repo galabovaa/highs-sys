@@ -10,7 +10,7 @@ This repository contains the source for HiGHS itself as a submodule.
 You should clone it with 
 
 ```
-git clone --recursive git@github.com:rust-or/highs-sys.git
+git clone --recursive https://github.com/rust-or/highs-sys.git
 ```
 
 This crate can either use and link a version of HiGHS that is already installed and available on your system or build and statically link HiGHS itself.

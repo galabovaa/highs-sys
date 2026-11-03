@@ -221,7 +221,6 @@ fn semi_integer_variable() {
     }
 }
 
-#[cfg(not(target_os = "windows"))] // broken on windows
 #[test]
 fn highs_functions_multithread() {
     let threads: Vec<_> = (0..128)
